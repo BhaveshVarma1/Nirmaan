@@ -1,13 +1,26 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Plus, Search, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import IdeaCard from "./IdeaCard";
+import RichTextEditor from "./RichTextEditor";
+import { supabase, IdeaDB } from "@/lib/supabase";
+import { useToast } from "@/components/ui/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Idea {
   id: string;
   title: string;
   description: string;
+  content: string;
   date: string;
 }
 
@@ -15,31 +28,186 @@ interface IdeaJournalProps {
   ideas?: Idea[];
 }
 
-const defaultIdeas: Idea[] = [
-  {
-    id: "1",
-    title: "Home Decor E-commerce",
-    description:
-      "An online platform for unique home decoration items with AR preview functionality.",
-    date: "2024-02-20",
-  },
-  {
-    id: "2",
-    title: "Sustainable Living Blog",
-    description:
-      "A blog focusing on eco-friendly home decoration tips and sustainable living practices.",
-    date: "2024-02-21",
-  },
-];
-
-const IdeaJournal: React.FC<IdeaJournalProps> = ({ ideas = defaultIdeas }) => {
+const IdeaJournal: React.FC<IdeaJournalProps> = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+  const [ideas, setIdeas] = useState<Idea[]>([]);
+  const [isNewIdeaDialogOpen, setIsNewIdeaDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [currentIdea, setCurrentIdea] = useState<Idea | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+  const [newIdea, setNewIdea] = useState({
+    title: "",
+    description: "",
+    content: "",
+  });
+
+  // Load ideas from Supabase on component mount
+  useEffect(() => {
+    fetchIdeas();
+  }, []);
+
+  const fetchIdeas = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('ideas')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedIdeas: Idea[] = (data as IdeaDB[]).map(idea => ({
+        id: idea.id,
+        title: idea.title,
+        description: idea.description,
+        content: idea.content,
+        date: new Date(idea.created_at).toLocaleDateString(),
+      }));
+
+      setIdeas(formattedIdeas);
+    } catch (error) {
+      console.error('Error fetching ideas:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load ideas. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleNewIdea = async () => {
+    if (!newIdea.title.trim() || !newIdea.content.trim()) return;
+
+    try {
+      setIsLoading(true);
+      const ideaToCreate = {
+        title: newIdea.title,
+        description: newIdea.content.replace(/<[^>]*>/g, '').slice(0, 150) + "...",
+        content: newIdea.content,
+      };
+
+      const { data, error } = await supabase
+        .from('ideas')
+        .insert([ideaToCreate])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const createdIdea: Idea = {
+        id: data.id,
+        title: data.title,
+        description: data.description,
+        content: data.content,
+        date: new Date(data.created_at).toLocaleDateString(),
+      };
+
+      setIdeas(prev => [createdIdea, ...prev]);
+      setNewIdea({ title: "", description: "", content: "" });
+      setIsNewIdeaDialogOpen(false);
+      toast({
+        title: "Success",
+        description: "Idea created successfully!",
+      });
+    } catch (error) {
+      console.error('Error creating idea:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create idea. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditIdea = async () => {
+    if (!currentIdea || !currentIdea.title.trim() || !currentIdea.content.trim()) return;
+
+    try {
+      setIsLoading(true);
+      const ideaToUpdate = {
+        title: currentIdea.title,
+        description: currentIdea.content.replace(/<[^>]*>/g, '').slice(0, 150) + "...",
+        content: currentIdea.content,
+      };
+
+      const { error } = await supabase
+        .from('ideas')
+        .update(ideaToUpdate)
+        .eq('id', currentIdea.id);
+
+      if (error) throw error;
+
+      const updatedIdea = {
+        ...currentIdea,
+        description: ideaToUpdate.description,
+      };
+
+      setIdeas(prev =>
+        prev.map(idea =>
+          idea.id === currentIdea.id ? updatedIdea : idea
+        )
+      );
+      setIsEditDialogOpen(false);
+      setCurrentIdea(null);
+      toast({
+        title: "Success",
+        description: "Idea updated successfully!",
+      });
+    } catch (error) {
+      console.error('Error updating idea:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update idea. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteIdea = async (id: string) => {
+    try {
+      setIsLoading(true);
+      const { error } = await supabase
+        .from('ideas')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setIdeas(prev => prev.filter(idea => idea.id !== id));
+      toast({
+        title: "Success",
+        description: "Idea deleted successfully!",
+      });
+    } catch (error) {
+      console.error('Error deleting idea:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete idea. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleViewIdea = (idea: Idea) => {
+    setCurrentIdea(idea);
+    setIsViewDialogOpen(true);
+  };
 
   const filteredIdeas = ideas.filter(
     (idea) =>
       idea.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      idea.description.toLowerCase().includes(searchTerm.toLowerCase()),
+      idea.content.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   return (
@@ -73,6 +241,7 @@ const IdeaJournal: React.FC<IdeaJournalProps> = ({ ideas = defaultIdeas }) => {
               </div>
             </div>
             <Button
+              onClick={() => setIsNewIdeaDialogOpen(true)}
               className="relative group overflow-hidden rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 
                 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg transition-all duration-300
                 hover:shadow-blue-500/25 w-full sm:w-auto"
@@ -92,13 +261,14 @@ const IdeaJournal: React.FC<IdeaJournalProps> = ({ ideas = defaultIdeas }) => {
         {filteredIdeas.map((idea, index) => (
           <div
             key={idea.id}
-            className="transform transition-all duration-500 hover:scale-[1.02]"
+            className="transform transition-all duration-500 hover:scale-[1.02] cursor-pointer"
             style={{
               opacity: 0,
               animation: `fadeIn 0.5s ease-out forwards ${index * 0.1}s`,
             }}
             onMouseEnter={() => setHoveredCard(idea.id)}
             onMouseLeave={() => setHoveredCard(null)}
+            onClick={() => handleViewIdea(idea)}
           >
             <div className="relative">
               <div
@@ -109,13 +279,158 @@ const IdeaJournal: React.FC<IdeaJournalProps> = ({ ideas = defaultIdeas }) => {
                 title={idea.title}
                 description={idea.description}
                 date={idea.date}
+                onEdit={(e) => {
+                  e.stopPropagation();
+                  setCurrentIdea(idea);
+                  setIsEditDialogOpen(true);
+                }}
+                onDelete={(e) => {
+                  e.stopPropagation();
+                  handleDeleteIdea(idea.id);
+                }}
               />
             </div>
           </div>
         ))}
       </div>
 
-      <style jsx>{`
+      {/* New Idea Dialog */}
+      <Dialog open={isNewIdeaDialogOpen} onOpenChange={setIsNewIdeaDialogOpen}>
+        <DialogContent className="bg-slate-900 text-white border-slate-700 max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Create New Idea</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="title">Title</Label>
+              <Input
+                id="title"
+                value={newIdea.title}
+                onChange={(e) => setNewIdea({ ...newIdea, title: e.target.value })}
+                className="bg-slate-800 border-slate-700"
+                placeholder="Give your idea a name..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Content</Label>
+              <RichTextEditor
+                content={newIdea.content}
+                onChange={(content) => setNewIdea({ ...newIdea, content })}
+                placeholder="Start writing your idea..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsNewIdeaDialogOpen(false)}
+              className="bg-slate-800 text-white border-slate-700 hover:bg-slate-700"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleNewIdea}
+              disabled={isLoading}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white"
+            >
+              {isLoading ? "Creating..." : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Idea Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="bg-slate-900 text-white border-slate-700 max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Edit Idea</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-title">Title</Label>
+              <Input
+                id="edit-title"
+                value={currentIdea?.title || ""}
+                onChange={(e) =>
+                  setCurrentIdea(
+                    currentIdea ? { ...currentIdea, title: e.target.value } : null
+                  )
+                }
+                className="bg-slate-800 border-slate-700"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Content</Label>
+              <RichTextEditor
+                content={currentIdea?.content || ""}
+                onChange={(content) =>
+                  setCurrentIdea(
+                    currentIdea ? { ...currentIdea, content } : null
+                  )
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsEditDialogOpen(false)}
+              className="bg-slate-800 text-white border-slate-700 hover:bg-slate-700"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEditIdea}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white"
+            >
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Idea Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="bg-slate-900 text-white border-slate-700 max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <div className="flex justify-between items-center">
+              <DialogTitle className="text-2xl font-bold">
+                {currentIdea?.title}
+              </DialogTitle>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setIsViewDialogOpen(false);
+                    setIsEditDialogOpen(true);
+                  }}
+                  className="bg-slate-800 text-white border-slate-700 hover:bg-slate-700"
+                >
+                  Edit
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsViewDialogOpen(false)}
+                  className="bg-slate-800 text-white border-slate-700 hover:bg-slate-700"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+            <p className="text-slate-400 text-sm">Created on {currentIdea?.date}</p>
+          </DialogHeader>
+          <ScrollArea className="mt-4 max-h-[60vh] overflow-auto">
+            <div 
+              className="prose prose-invert max-w-none"
+              dangerouslySetInnerHTML={{ __html: currentIdea?.content || "" }}
+            />
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      <style>{`
         @keyframes fadeIn {
           from {
             opacity: 0;

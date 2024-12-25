@@ -11,6 +11,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
 import { AuthProvider } from '@/lib/auth';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { Toaster } from '@/components/ui/toaster';
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<
@@ -170,6 +171,7 @@ export default function App() {
           </div>
         </Router>
       </AuthProvider>
+      <Toaster />
     </ErrorBoundary>
   );
 }
