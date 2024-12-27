@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, Clock, Plus, Calendar as CalendarViewIcon, List, BarChart2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, Plus, Calendar as CalendarViewIcon, List, BarChart2, Trash, X, CheckSquare } from 'lucide-react';
 import { Task, TaskPriority, TaskStatus } from '@/types/task';
 import useTaskStore from '@/lib/store/taskStore';
 import { format, startOfWeek, addDays, isSameDay, parseISO } from 'date-fns';
@@ -9,13 +9,17 @@ import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DragDropContext, Draggable, Droppable, DropResult, DroppableProvided, DraggableProvided } from '@hello-pangea/dnd';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const TaskScheduler = () => {
   const [showAddTask, setShowAddTask] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate] = useState(new Date());
   const [view, setView] = useState<'calendar' | 'list' | 'timeline'>('calendar');
+  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
+  const [showBulkActions, setShowBulkActions] = useState(false);
   const tasks = useTaskStore((state) => state.groups.flatMap((group) => group.tasks));
   const updateTask = useTaskStore((state) => state.updateTask);
+  const deleteTask = useTaskStore((state) => state.deleteTask);
 
   // Group tasks by date
   const tasksByDate = tasks.reduce((acc, task) => {
@@ -92,15 +96,89 @@ const TaskScheduler = () => {
     }
   };
 
+  const handleTaskSelect = (taskId: string) => {
+    const newSelected = new Set(selectedTasks);
+    if (newSelected.has(taskId)) {
+      newSelected.delete(taskId);
+    } else {
+      newSelected.add(taskId);
+    }
+    setSelectedTasks(newSelected);
+    setShowBulkActions(newSelected.size > 0);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedTasks.size === tasks.length) {
+      setSelectedTasks(new Set());
+      setShowBulkActions(false);
+    } else {
+      setSelectedTasks(new Set(tasks.map(t => t.id)));
+      setShowBulkActions(true);
+    }
+  };
+
+  const handleBulkDelete = () => {
+    const confirmed = window.confirm(`Are you sure you want to delete ${selectedTasks.size} tasks?`);
+    if (confirmed) {
+      selectedTasks.forEach(taskId => {
+        const task = tasks.find(t => t.id === taskId);
+        if (task) {
+          const groupId = useTaskStore.getState().groups.find(g => 
+            g.tasks.some(t => t.id === taskId)
+          )?.id;
+          if (groupId) {
+            deleteTask(groupId, taskId);
+          }
+        }
+      });
+      setSelectedTasks(new Set());
+      setShowBulkActions(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold text-slate-200">Task Schedule</h2>
         <div className="flex items-center gap-4">
-          <Button onClick={() => setShowAddTask(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Add Task
-          </Button>
+          {showBulkActions ? (
+            <>
+              <Button
+                variant="destructive"
+                onClick={handleBulkDelete}
+                className="gap-2"
+              >
+                <Trash className="h-4 w-4" />
+                Delete Selected ({selectedTasks.size})
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSelectedTasks(new Set());
+                  setShowBulkActions(false);
+                }}
+                className="gap-2"
+              >
+                <X className="h-4 w-4" />
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                onClick={handleSelectAll}
+                className="gap-2"
+              >
+                <CheckSquare className="h-4 w-4" />
+                {selectedTasks.size === tasks.length ? 'Deselect All' : 'Select All'}
+              </Button>
+              <Button onClick={() => setShowAddTask(true)} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Add Task
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -144,10 +222,24 @@ const TaskScheduler = () => {
                                   {...provided.draggableProps}
                                   {...provided.dragHandleProps}
                                   className={cn(
-                                    "p-3 rounded-lg border",
-                                    getPriorityColor(task.priority)
+                                    "p-3 rounded-lg border relative group",
+                                    getPriorityColor(task.priority),
+                                    selectedTasks.has(task.id) && "ring-2 ring-blue-500"
                                   )}
+                                  onClick={(e) => {
+                                    if (showBulkActions) {
+                                      e.preventDefault();
+                                      handleTaskSelect(task.id);
+                                    }
+                                  }}
                                 >
+                                  <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Checkbox
+                                      checked={selectedTasks.has(task.id)}
+                                      onCheckedChange={() => handleTaskSelect(task.id)}
+                                      className="h-4 w-4"
+                                    />
+                                  </div>
                                   <div className="text-sm font-medium">{task.title}</div>
                                   {task.time && (
                                     <div className="flex items-center gap-1 mt-1 text-xs opacity-80">
@@ -282,7 +374,11 @@ const TaskScheduler = () => {
         </DragDropContext>
       </Tabs>
 
-      {showAddTask && <AddTaskDialog onClose={() => setShowAddTask(false)} />}
+      {showAddTask && (
+        <AddTaskDialog
+          onClose={() => setShowAddTask(false)}
+        />
+      )}
     </div>
   );
 };

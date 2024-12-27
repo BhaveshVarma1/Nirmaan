@@ -20,6 +20,26 @@ export enum TaskStatus {
   OnHold = 'On Hold'
 }
 
+export enum TaskRecurrenceType {
+  Daily = 'Daily',
+  Weekly = 'Weekly',
+  Monthly = 'Monthly',
+  Custom = 'Custom'
+}
+
+export interface TaskRecurrence {
+  type: TaskRecurrenceType;
+  interval: number;
+  endDate?: string;
+  customDays?: number[];
+}
+
+export interface TaskDependency {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+
 export interface TaskDuration {
   hours: number;
   minutes: number;
@@ -47,11 +67,12 @@ export interface Task {
   urgency: boolean;
   importance: boolean;
   milestones?: TaskMilestone[];
-  dependencies?: string[];
-  prerequisites?: string[];
+  dependencies?: TaskDependency[];
+  prerequisites?: TaskDependency[];
   subtasks?: Task[];
   templateId?: string;
   tags?: string[];
+  recurrence?: TaskRecurrence;
   createdAt: string;
   updatedAt: string;
 }
