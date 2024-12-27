@@ -4,7 +4,8 @@ import {
   Calendar,
   Lightbulb,
   Settings,
-  HelpCircle,
+  Bot,
+  Network,
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -12,7 +13,8 @@ const Sidebar = () => {
     { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/schedule', icon: Calendar, label: 'Schedule' },
     { to: '/ideas', icon: Lightbulb, label: 'Ideas' },
-    { to: '/ai-helper', icon: HelpCircle, label: 'AI Helper' },
+    { to: '/mindmap', icon: Network, label: 'Mind Map' },
+    { to: '/ai-helper', icon: Bot, label: 'AI Helper' },
     { to: '/settings', icon: Settings, label: 'Settings' },
   ];
 

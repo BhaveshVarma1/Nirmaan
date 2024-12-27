@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import TaskBoard from '@/components/tasks/TaskBoard';
 import TaskScheduler from '@/components/tasks/TaskScheduler';
 import IdeaJournal from '@/components/ideas/IdeaJournal';
+import MindMap from '@/components/mindmap/MindMap';
 import LoginForm from '@/components/auth/LoginForm';
 import SignupForm from '@/components/auth/SignupForm';
 import useTaskStore from '@/lib/store/taskStore';
@@ -120,6 +121,16 @@ export default function App() {
                   <ProtectedRoute>
                     <Layout>
                       <IdeaJournal />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/mindmap"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <MindMap />
                     </Layout>
                   </ProtectedRoute>
                 }
