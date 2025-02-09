@@ -1,4 +1,4 @@
-import { Square, Circle, Diamond, Undo, Redo, Save, Trash2 } from 'lucide-react';
+import { Square, Circle, Diamond, Undo, Redo, Save, Trash2, StickyNote, Image } from 'lucide-react';
 
 interface ToolbarProps {
   onAddNode: (type: string) => void;
@@ -32,6 +32,23 @@ const MindMapToolbar = ({ onAddNode, onUndo, onRedo, onSave, onClear }: ToolbarP
           title="Add Diamond Node"
         >
           <Diamond className="w-5 h-5" />
+        </button>
+      </div>
+      
+      <div className="flex items-center gap-2 px-2 border-r border-slate-700">
+        <button
+          onClick={() => onAddNode('sticky')}
+          className="p-2 rounded-lg hover:bg-slate-700/50 text-slate-300 hover:text-slate-50 transition-colors"
+          title="Add Sticky Note"
+        >
+          <StickyNote className="w-5 h-5" />
+        </button>
+        <button
+          onClick={() => onAddNode('media')}
+          className="p-2 rounded-lg hover:bg-slate-700/50 text-slate-300 hover:text-slate-50 transition-colors"
+          title="Add Media"
+        >
+          <Image className="w-5 h-5" />
         </button>
       </div>
       
@@ -72,4 +89,4 @@ const MindMapToolbar = ({ onAddNode, onUndo, onRedo, onSave, onClear }: ToolbarP
   );
 };
 
-export default MindMapToolbar; 
+export default MindMapToolbar;

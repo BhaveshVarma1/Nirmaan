@@ -14,7 +14,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
-import { BasicNode, RectangleNode, CircleNode, DiamondNode } from './NodeTypes';
+import { BasicNode, RectangleNode, CircleNode, DiamondNode, StickyNoteNode, MediaNode } from './NodeTypes';
 import MindMapToolbar from './MindMapToolbar';
 
 const nodeTypes = {
@@ -22,6 +22,8 @@ const nodeTypes = {
   rectangle: RectangleNode,
   circle: CircleNode,
   diamond: DiamondNode,
+  sticky: StickyNoteNode,
+  media: MediaNode,
 };
 
 const initialNodes: Node[] = [
@@ -81,8 +83,10 @@ const MindMapFlow = () => {
         type,
         position,
         data: { 
-          label: 'New Node',
+          label: type === 'sticky' ? '<p>New Note</p>' : type === 'media' ? '' : 'New Node',
           onLabelChange: (newLabel: string) => onLabelChange(newNode.id, newLabel),
+          mediaUrl: '',
+          mediaType: undefined,
         },
       };
 
@@ -185,4 +189,4 @@ const MindMap = () => {
   );
 };
 
-export default MindMap; 
+export default MindMap;

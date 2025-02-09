@@ -34,8 +34,9 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
   useEffect(() => {
     const getRandomTeaching = () => {
-      const randomIndex = Math.floor(Math.random() * teachings.length);
-      return teachings[randomIndex];
+      const randomIndex = Math.floor(Math.random() * teachings.quotes.length);
+      const randomQuote = teachings.quotes[randomIndex];
+      return { verse: randomQuote.text, chapter: randomQuote.author };
     };
 
     setCurrentTeaching(getRandomTeaching());
@@ -105,7 +106,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                   <AvatarFallback>
                     {(user?.user_metadata?.full_name || user?.email || "")
                       .split(" ")
-                      .map((n) => n[0])
+                      .map((n: string) => n[0])
                       .join("")}
                   </AvatarFallback>
                 </Avatar>
